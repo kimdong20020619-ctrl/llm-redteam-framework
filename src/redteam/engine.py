@@ -1,5 +1,5 @@
 from redteam.judge import Judge
-from redteam.models import JudgeResult
+from redteam.models import JudgeResult, JudgeStatus
 from redteam.payload_source import PayloadSource
 from redteam.reporter import Reporter
 from redteam.target import Target
@@ -24,7 +24,7 @@ class AttackEngine:
                     response = self.target.send(payload.text)  # 연결 실패 시 1회 재시도
                 except Exception as e:
                     results.append(
-                        JudgeResult(payload=payload, response="", success=False, detail=f"오류: {e}")
+                        JudgeResult(payload=payload, response="", status=JudgeStatus.ERROR, detail=f"오류: {e}")
                     )
                     continue
 
@@ -32,7 +32,7 @@ class AttackEngine:
                 result = self.judge.evaluate(payload, response)
             except Exception as e:
                 result = JudgeResult(
-                    payload=payload, response=response, success=False, detail=f"판정 불가: {e}"
+                    payload=payload, response=response, status=JudgeStatus.UNDETERMINED, detail=f"판정 불가: {e}"
                 )
             results.append(result)
 
