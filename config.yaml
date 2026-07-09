@@ -1,0 +1,13 @@
+target:
+  type: game
+  model: llama3
+  secret: "hunter2"
+
+judge:
+  type: keyword
+
+payload_source:
+  path: payloads/known_jailbreaks.yaml
+
+reporter:
+  type: console
