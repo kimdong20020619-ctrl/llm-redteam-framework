@@ -1,4 +1,4 @@
-from redteam.reporter import ConsoleReporter
+from redteam.reporter import ConsoleReporter, HtmlReporter
 from redteam.models import JudgeStatus, JudgeResult, Payload
 
 
@@ -38,3 +38,44 @@ def test_console_reporter_shows_error_and_undetermined_counts_separately(capsys)
     assert "오류 1개" in captured.out
     assert "판정불가 1개" in captured.out
     assert "dan: 0/2 (0%) (오류/판정불가 2건)" in captured.out
+
+
+def test_html_reporter_writes_file_with_summary_and_category_and_status_badges(tmp_path):
+    output_file = tmp_path / "report.html"
+    results = [
+        JudgeResult(
+            payload=Payload(category="roleplay", text="자유AI 페이로드"),
+            response="프로젝트 오로라입니다",
+            status=JudgeStatus.SUCCESS,
+            detail="LLM 판정: LEAK",
+        ),
+        JudgeResult(
+            payload=Payload(category="direct_ask", text="바로 물어보기"),
+            response="알려드릴 수 없습니다",
+            status=JudgeStatus.BLOCKED,
+            detail="LLM 판정: SAFE",
+        ),
+        JudgeResult(
+            payload=Payload(category="dan", text="DAN 페이로드"),
+            response="",
+            status=JudgeStatus.ERROR,
+            detail="오류: 연결 실패",
+        ),
+    ]
+
+    HtmlReporter(output_path=str(output_file)).render(results)
+
+    assert output_file.exists()
+    html = output_file.read_text(encoding="utf-8")
+    assert "총 3개" in html
+    assert "roleplay" in html
+    assert "direct_ask" in html
+    assert "dan" in html
+    assert "성공" in html
+    assert "차단" in html
+    assert "오류" in html
+
+
+def test_html_reporter_defaults_output_path_to_report_html():
+    reporter = HtmlReporter()
+    assert reporter.output_path == "report.html"
