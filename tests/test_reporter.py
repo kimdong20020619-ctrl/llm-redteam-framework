@@ -79,3 +79,23 @@ def test_html_reporter_writes_file_with_summary_and_category_and_status_badges(t
 def test_html_reporter_defaults_output_path_to_report_html():
     reporter = HtmlReporter()
     assert reporter.output_path == "report.html"
+
+
+def test_html_reporter_escapes_html_in_payload_text_and_detail(tmp_path):
+    output_file = tmp_path / "report.html"
+    results = [
+        JudgeResult(
+            payload=Payload(category="<script>alert(1)</script>", text="<script>alert(1)</script>"),
+            response="",
+            status=JudgeStatus.SUCCESS,
+            detail="<td>강제 삽입</td>",
+        ),
+    ]
+
+    HtmlReporter(output_path=str(output_file)).render(results)
+
+    html = output_file.read_text(encoding="utf-8")
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<td>강제 삽입</td>" not in html
+    assert "&lt;td&gt;강제 삽입&lt;/td&gt;" in html

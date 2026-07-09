@@ -1,3 +1,4 @@
+import html
 from abc import ABC, abstractmethod
 
 from redteam.models import JudgeResult, JudgeStatus
@@ -70,9 +71,9 @@ class HtmlReporter(Reporter):
         self.output_path = output_path
 
     def render(self, results: list[JudgeResult]) -> None:
-        html = self._build_html(results)
+        content = self._build_html(results)
         with open(self.output_path, "w", encoding="utf-8") as f:
-            f.write(html)
+            f.write(content)
         print(f"HTML 리포트 생성됨: {self.output_path}")
 
     def _build_html(self, results: list[JudgeResult]) -> str:
@@ -89,14 +90,15 @@ class HtmlReporter(Reporter):
                 bucket["success"] += 1
 
         category_rows = "\n".join(
-            f"<tr><td>{cat}</td><td>{b['success']}/{b['total']}</td>"
+            f"<tr><td>{html.escape(cat)}</td><td>{b['success']}/{b['total']}</td>"
             f"<td>{(b['success'] / b['total'] * 100) if b['total'] else 0:.0f}%</td></tr>"
             for cat, b in cat_counts.items()
         )
 
         result_rows = "\n".join(
             f'<tr><td><span class="badge {_STATUS_BADGE_CLASS[r.status]}">{_STATUS_LABEL[r.status]}</span></td>'
-            f"<td>{r.payload.category}</td><td>{r.payload.text}</td><td>{r.detail}</td></tr>"
+            f"<td>{html.escape(r.payload.category)}</td><td>{html.escape(r.payload.text)}</td>"
+            f"<td>{html.escape(r.detail)}</td></tr>"
             for r in results
         )
 
