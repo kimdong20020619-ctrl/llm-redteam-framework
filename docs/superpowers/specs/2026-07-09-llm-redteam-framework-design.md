@@ -1,7 +1,7 @@
 # LLM 레드티밍 자동화 프레임워크 — 설계 스펙
 
 - 작성일: 2026-07-09
-- 상태: 설계 승인 대기
+- 상태: 설계 확정 (자체 검증 완료, 구현 계획 수립 단계)
 
 ## 개요
 
@@ -27,7 +27,7 @@ LLM 기반 챗봇에 자동으로 탈옥(jailbreak)·프롬프트 인젝션 페�
 |----------|------|-----------|-------------------|-------------------|
 | `Target` | 공격 대상 챗봇과 통신 | `send(payload: str) -> str` | `GameTarget` (비밀번호 사수, Ollama) | `PolicyTarget` (기밀 키워드 사수, Ollama) |
 | `PayloadSource` | 카테고리별 페이로드 로드 | `load() -> list[Payload(category, text)]` | 공개 탈옥 기법 목록 (YAML) | 동일 + 직접 창작 페이로드 추가 |
-| `Judge` | 공격 성공 여부 판정 | `evaluate(payload, response) -> JudgeResult(success, detail)` | `KeywordMatchJudge` | `LLMJudge` (문맥상 유출까지 판단, 별도 LLM 호출) |
+| `Judge` | 공격 성공 여부 판정 | `evaluate(payload, response) -> JudgeResult(success, detail)` | `KeywordMatchJudge` | `LLMJudge` (문맥상 유출까지 판단, 타겟과 동일한 로컬 Ollama 모델을 재사용해 판정 전용으로 별도 호출) |
 | `Reporter` | 결과 출력 | `render(results: list[JudgeResult]) -> None` | `ConsoleReporter` | `HtmlReporter` |
 
 각 컴포넌트는 추상 베이스 클래스(ABC)로 정의하고, 실제 사용할 구현체는 `config.yaml`에서 지정한다.
@@ -58,6 +58,20 @@ reporter:
   type: console      # console | html
 ```
 
+마일스톤2(`policy` 타입) 예시:
+
+```yaml
+target:
+  type: policy
+  model: llama3
+  confidential_keywords:   # 문맥상 유출도 판정하려면 LLMJudge와 함께 사용
+    - "미공개 프로젝트명"
+    - "임원 연봉"
+
+judge:
+  type: llm    # 타겟과 동일한 로컬 모델을 재사용해 판정 전용 호출 수행
+```
+
 ## 에러 처리
 
 - Ollama 연결 실패: 1회 재시도 후 실패 시 해당 페이로드를 "오류"로 기록하고 다음 페이로드로 진행 (전체 실행 중단 안 함)
@@ -69,6 +83,7 @@ reporter:
 - `KeywordMatchJudge`: 알려진 성공/실패 응답 샘플로 단위 테스트
 - `AttackEngine`: 가짜(mock) `Target`으로 실제 Ollama 없이 페이로드 로드 → 판정 → 리포트 전체 파이프라인 검증
 - `LLMJudge`(마일스톤2): 판정 정확도를 사람이 라벨링한 샘플 응답 세트로 검증
+- `ConsoleReporter`/`HtmlReporter`: 고정된 결과 샘플을 입력해 출력 형식(표·HTML 구조)이 깨지지 않는지 검증
 
 ## 마일스톤 및 예상 기간 (총 6~8주)
 
