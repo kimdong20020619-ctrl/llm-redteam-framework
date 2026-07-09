@@ -19,11 +19,14 @@ class AttackEngine:
         for payload in payloads:
             try:
                 response = self.target.send(payload.text)
-            except Exception as e:
-                results.append(
-                    JudgeResult(payload=payload, response="", success=False, detail=f"오류: {e}")
-                )
-                continue
+            except Exception:
+                try:
+                    response = self.target.send(payload.text)  # 연결 실패 시 1회 재시도
+                except Exception as e:
+                    results.append(
+                        JudgeResult(payload=payload, response="", success=False, detail=f"오류: {e}")
+                    )
+                    continue
 
             try:
                 result = self.judge.evaluate(payload, response)

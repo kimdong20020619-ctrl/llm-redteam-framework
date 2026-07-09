@@ -31,6 +31,20 @@ class BrokenJudge:
         raise RuntimeError("판정 로직 내부 오류")
 
 
+class RetryOnceTarget:
+    """첫 호출은 실패하고 두 번째 호출(재시도)에서 성공하는 타겟."""
+
+    def __init__(self, response):
+        self._response = response
+        self.call_count = 0
+
+    def send(self, payload):
+        self.call_count += 1
+        if self.call_count == 1:
+            raise ConnectionError("Ollama에 연결할 수 없음")
+        return self._response
+
+
 class RecordingReporter:
     def __init__(self):
         self.rendered = None
@@ -73,6 +87,22 @@ def test_engine_marks_target_failure_as_error_and_continues():
     assert len(results) == 1
     assert results[0].success is False
     assert "오류" in results[0].detail
+
+
+def test_engine_retries_target_send_once_before_recording_error():
+    payloads = [Payload(category="dan", text="아무 페이로드")]
+    judge = KeywordMatchJudge(keyword="hunter2")
+    reporter = RecordingReporter()
+    payload_source = FakePayloadSource(payloads)
+    target = RetryOnceTarget(response="정상 응답")
+
+    engine = AttackEngine(target=target, judge=judge, reporter=reporter, payload_source=payload_source)
+    results = engine.run()
+
+    assert target.call_count == 2
+    assert len(results) == 1
+    assert "오류" not in results[0].detail
+    assert results[0].response == "정상 응답"
 
 
 def test_engine_marks_judge_exception_as_undetermined_and_continues():
