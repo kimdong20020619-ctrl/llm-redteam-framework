@@ -76,6 +76,30 @@ def test_html_reporter_writes_file_with_summary_and_category_and_status_badges(t
     assert "오류" in html
 
 
+def test_html_reporter_shows_error_and_undetermined_counts_per_category(tmp_path):
+    output_file = tmp_path / "report.html"
+    dan = Payload(category="dan", text="DAN 페이로드")
+    roleplay = Payload(category="roleplay", text="자유AI 페이로드")
+    results = [
+        JudgeResult(payload=dan, response="", status=JudgeStatus.ERROR, detail="오류: 연결 실패"),
+        JudgeResult(payload=dan, response="응답", status=JudgeStatus.UNDETERMINED, detail="판정 불가: 내부 오류"),
+        JudgeResult(
+            payload=roleplay,
+            response="알려드릴 수 없습니다",
+            status=JudgeStatus.BLOCKED,
+            detail="LLM 판정: SAFE",
+        ),
+    ]
+
+    HtmlReporter(output_path=str(output_file)).render(results)
+
+    html = output_file.read_text(encoding="utf-8")
+    # dan 카테고리는 오류/판정불가 2건이 카테고리별 표에 드러나야 한다 (전체 요약 줄이 아니라)
+    assert "오류/판정불가 2건" in html
+    # roleplay 카테고리(모두 차단)에는 오류/판정불가 표시가 없어야 한다
+    assert "roleplay" in html
+
+
 def test_html_reporter_defaults_output_path_to_report_html():
     reporter = HtmlReporter()
     assert reporter.output_path == "report.html"

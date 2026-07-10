@@ -84,14 +84,20 @@ class HtmlReporter(Reporter):
 
         cat_counts: dict[str, dict[str, int]] = {}
         for r in results:
-            bucket = cat_counts.setdefault(r.payload.category, {"total": 0, "success": 0})
+            bucket = cat_counts.setdefault(r.payload.category, {"total": 0, "success": 0, "error_undetermined": 0})
             bucket["total"] += 1
             if r.status == JudgeStatus.SUCCESS:
                 bucket["success"] += 1
+            elif r.status in (JudgeStatus.ERROR, JudgeStatus.UNDETERMINED):
+                bucket["error_undetermined"] += 1
+
+        def _error_undetermined_cell(b: dict[str, int]) -> str:
+            return f"오류/판정불가 {b['error_undetermined']}건" if b["error_undetermined"] else ""
 
         category_rows = "\n".join(
             f"<tr><td>{html.escape(cat)}</td><td>{b['success']}/{b['total']}</td>"
-            f"<td>{(b['success'] / b['total'] * 100) if b['total'] else 0:.0f}%</td></tr>"
+            f"<td>{(b['success'] / b['total'] * 100) if b['total'] else 0:.0f}%</td>"
+            f"<td>{_error_undetermined_cell(b)}</td></tr>"
             for cat, b in cat_counts.items()
         )
 
@@ -126,7 +132,7 @@ th {{ background: #f0f0f0; }}
 
 <h2>카테고리별 성공률</h2>
 <table>
-<tr><th>카테고리</th><th>성공/전체</th><th>성공률</th></tr>
+<tr><th>카테고리</th><th>성공/전체</th><th>성공률</th><th>오류/판정불가</th></tr>
 {category_rows}
 </table>
 
