@@ -1,0 +1,45 @@
+name: security
+
+# 의존성 취약점 게이트.
+# requirements.txt는 `>=` 하한만 지정하므로 설치 시점마다 버전이 달라진다.
+# requirements-lock.txt(고정 버전)를 기준으로 감사해야 재현 가능한 결과가 나온다.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    # 새 CVE는 코드 변경 없이도 공개되므로 주 1회 정기 실행한다 (매주 월요일 09:00 KST).
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit pinned dependencies
+        run: pip-audit -r requirements-lock.txt
+
+      - name: Check lockfile is in sync with requirements.txt
+        # 락파일을 갱신하지 않고 requirements.txt만 고치면 감사가 무의미해진다.
+        #
+        # --universal 필수: 이 옵션 없이 만든 락파일은 생성한 OS에 종속된다.
+        # (예: colorama는 Windows에서만 설치되므로 Linux 러너에서 재컴파일하면 항상 불일치가 난다)
+        # 로컬에서 갱신할 때도 반드시 동일 옵션을 쓸 것.
+        run: |
+          pip install uv
+          uv pip compile requirements.txt -o /tmp/expected-lock.txt --universal --python-version 3.12 --quiet
+          if ! diff -q <(grep -vE '^\s*#' /tmp/expected-lock.txt) <(grep -vE '^\s*#' requirements-lock.txt) > /dev/null; then
+            echo "::error::requirements-lock.txt is out of sync. Run: uv pip compile requirements.txt -o requirements-lock.txt --universal --python-version 3.12"
+            diff <(grep -vE '^\s*#' /tmp/expected-lock.txt) <(grep -vE '^\s*#' requirements-lock.txt) || true
+            exit 1
+          fi

@@ -1,6 +1,10 @@
 # LLM 레드티밍 자동화 프레임워크
 
+[![security](https://github.com/kimdong20020619-ctrl/llm-redteam-framework/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/kimdong20020619-ctrl/llm-redteam-framework/actions/workflows/security.yml)
+
 로컬 Ollama로 돌아가는 더미 챗봇에 공개된 탈옥(jailbreak) 페이로드를 자동으로 주입하고, 가드레일이 뚫리는지 판정해 리포트로 정리하는 도구입니다.
+
+> **도구 자체의 보안**: 판정 LLM에 대상 응답을 넘길 때 `<target_response>` 구분자로 감싸고, 그 내부를 지시가 아닌 데이터로 취급하도록 시스템 프롬프트에 못박아 2차 프롬프트 인젝션을 방어합니다. 의존성은 `requirements-lock.txt` 기준으로 `pip-audit` 정기 검증합니다.
 
 ## 실행 방법
 
