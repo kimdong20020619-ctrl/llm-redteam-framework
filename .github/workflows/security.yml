@@ -29,17 +29,25 @@ jobs:
       - name: Audit pinned dependencies
         run: pip-audit -r requirements-lock.txt
 
-      - name: Check lockfile is in sync with requirements.txt
-        # 락파일을 갱신하지 않고 requirements.txt만 고치면 감사가 무의미해진다.
+      - name: Check lockfile satisfies requirements.txt
+        # 목적: 락을 갱신하지 않고 requirements.txt만 고치는 것을 막는다.
         #
-        # --universal 필수: 이 옵션 없이 만든 락파일은 생성한 OS에 종속된다.
-        # (예: colorama는 Windows에서만 설치되므로 Linux 러너에서 재컴파일하면 항상 불일치가 난다)
-        # 로컬에서 갱신할 때도 반드시 동일 옵션을 쓸 것.
+        # 주의 - 단순히 재컴파일해서 diff하면 안 된다. uv는 항상 '최신 허용 버전'으로
+        # 해결하므로, 저장소가 하나도 바뀌지 않아도 업스트림이 새 버전을 내면 실패한다
+        # (실측: numpy 2.5.1 -> 2.5.2 배포만으로 정기 실행이 깨졌다).
+        #
+        # 그래서 기존 락파일을 기준선(preference)으로 넘긴다. uv는 -o 대상 파일의
+        # 기존 핀을 우선 유지하므로, requirements.txt 제약을 어길 때만 버전이 바뀐다.
+        # 결과적으로 "제약 위반"만 잡고 "업스트림 신버전"은 무시한다.
+        #
+        # --universal 필수: 없으면 락이 생성한 OS에 종속된다
+        # (colorama는 Windows 전용이라 Linux 러너에서 항상 불일치가 난다).
         run: |
           pip install uv
+          cp requirements-lock.txt /tmp/expected-lock.txt
           uv pip compile requirements.txt -o /tmp/expected-lock.txt --universal --python-version 3.12 --quiet
           if ! diff -q <(grep -vE '^\s*#' /tmp/expected-lock.txt) <(grep -vE '^\s*#' requirements-lock.txt) > /dev/null; then
-            echo "::error::requirements-lock.txt is out of sync. Run: uv pip compile requirements.txt -o requirements-lock.txt --universal --python-version 3.12"
+            echo "::error::requirements-lock.txt does not satisfy requirements.txt. Run: uv pip compile requirements.txt -o requirements-lock.txt --universal --python-version 3.12"
             diff <(grep -vE '^\s*#' /tmp/expected-lock.txt) <(grep -vE '^\s*#' requirements-lock.txt) || true
             exit 1
           fi
